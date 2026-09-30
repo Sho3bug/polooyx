@@ -1,4 +1,5 @@
 #pragma once
+#include <string_view>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
@@ -89,8 +90,8 @@ private:
     // parameter smoothing
     struct FloatParam { std::atomic<float>* src; float sm; };
     std::vector<FloatParam> fparams;
-    std::unordered_map<const void*, int> fIndex;                      // keyed by the id-constant's address
-    std::unordered_map<const void*, std::atomic<float>*> rawPtr;
+    std::unordered_map<std::string_view, int> fIndex;                 // keyed by the id text (never by address: MSVC doesn't pool literals)
+    std::unordered_map<std::string_view, std::atomic<float>*> rawPtr;
     float fp (const char* id) const { return fparams[(size_t) fIndex.at (id)].sm; }
     std::atomic<float>* raw (const char* id);
     bool  bp (const char* id) { return raw (id)->load() > 0.5f; }

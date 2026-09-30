@@ -34,7 +34,7 @@ PolooyxProcessor::PolooyxProcessor()
     {
         auto* src = apvts.getRawParameterValue (pid);
         jassert (src != nullptr);
-        fIndex[(const void*) pid] = (int) fparams.size();
+        fIndex[std::string_view (pid)] = (int) fparams.size();
         fparams.push_back ({ src, src->load() });
     }
     abSlots[0] = apvts.copyState();
@@ -44,11 +44,11 @@ PolooyxProcessor::PolooyxProcessor()
 
 std::atomic<float>* PolooyxProcessor::raw (const char* pid)
 {
-    auto it = rawPtr.find ((const void*) pid);
+    auto it = rawPtr.find (std::string_view (pid));
     if (it != rawPtr.end()) return it->second;
     auto* p = apvts.getRawParameterValue (pid);   // first use happens in the constructor / prepare, not per block
     jassert (p != nullptr);
-    rawPtr[(const void*) pid] = p;
+    rawPtr[std::string_view (pid)] = p;
     return p;
 }
 
