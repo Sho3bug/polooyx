@@ -1,0 +1,8 @@
+build/
+build-*/
+test-output/
+testrun/
+*.user
+.vs/
+.DS_Store
+JUCE/
