@@ -68,14 +68,14 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
-          git config user.name "polooyx-ci"
-          git config user.email "ci@users.noreply.github.com"
           $sha = "${{ github.sha }}".Substring(0,7)
           New-Item -ItemType Directory -Force -Path publish | Out-Null
           Copy-Item dist\POLOOYX-Windows-x64.zip publish\
           Copy-Item testrun\test-output\TEST_REPORT.md publish\TEST_REPORT-Windows.md
           Set-Location publish
           git init -q -b builds
+          git config user.name "polooyx-ci"
+          git config user.email "ci@users.noreply.github.com"
           git add -A
           git commit -q -m "Windows build $sha"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" builds
