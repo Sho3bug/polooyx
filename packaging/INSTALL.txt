@@ -1,0 +1,32 @@
+POLOOYX — VOCAL ENGINE v1.0  (Windows x64, VST3)
+=================================================
+
+INSTALL
+1. Unzip this folder anywhere (don't run from inside the zip).
+2. Double-click "Install POLOOYX.bat" and allow the admin prompt.
+   (Manual alternative: copy the POLOOYX.vst3 folder into
+    C:\Program Files\Common Files\VST3\ )
+3. Open FL Studio -> Options -> Manage plugins -> "Find installed plugins".
+   POLOOYX appears under Effects, vendor "Polooyx". Star it to add it to your
+   plugin database.
+4. On a mixer track with your vocal: click an empty FX slot -> POLOOYX.
+
+FIRST USE
+- Load a vocal, pick a preset from the top bar, then move the six macros.
+- POLOOYX MODE (top right) switches on the signature voicing network.
+- ADVANCED (bottom right) opens every module.
+- Pitch correction: ADVANCED -> TUNE -> set KEY and SCALE to your beat.
+
+LATENCY
+- The plugin reports ~23 ms latency (pitch engine). FL Studio compensates
+  automatically on playback. If you monitor THROUGH it while recording,
+  you'll hear that delay; record dry and apply POLOOYX after, or switch
+  TUNE off while tracking.
+
+STANDALONE
+- "POLOOYX Standalone.exe" runs the plugin without a DAW (mic in -> out).
+  Use headphones to avoid feedback.
+
+WINDOWS SMARTSCREEN
+- The build is not code-signed, so Windows may show "Windows protected your
+  PC" for the .bat or .exe. Click "More info" -> "Run anyway".
