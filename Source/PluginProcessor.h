@@ -110,6 +110,7 @@ private:
     plx::SyncDelay delay;
     plx::Doubler doubler;
     plx::Limiter limiter;
+    plx::Punch punchProc;
     std::array<plx::DelayLine, 2> dryDelay;
     plx::EnvFollower duckEnv;
     plx::DriftLfo pitchDrift;

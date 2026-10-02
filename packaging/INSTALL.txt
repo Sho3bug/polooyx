@@ -1,4 +1,4 @@
-POLOOYX — VOCAL ENGINE v1.0  (Windows x64, VST3)
+POLOOYX — VOCAL ENGINE v1.1  (Windows x64, VST3)
 =================================================
 
 INSTALL

@@ -323,6 +323,21 @@ PolooyxEditor::PolooyxEditor (PolooyxProcessor& p)
     modeBtn.setTooltip ("Signature POLOOYX voicing: shadow layer, macro cross-links, ducked space, glitch echoes");
 
     rebuildPresetMenu();
+
+    // ---- STYLE menu: one-click complete vocal voicings (the STYLES preset category)
+    content.addAndMakeVisible (styleBox);
+    styleBox.setTextWhenNothingSelected ("CHOOSE A STYLE");
+    styleBox.setTooltip ("Complete vocal styles: tuning, tone, grit, layers and space set together. Your key, scale and gain are kept. Shape it further with the six macros.");
+    {
+        const auto& fp = factoryPresets();
+        for (size_t i = 0; i < fp.size(); ++i)
+            if (juce::String (fp[i].category) == "STYLES") styleBox.addItem (fp[i].name, (int) i + 1);
+    }
+    styleBox.onChange = [this] {
+        const int sel = styleBox.getSelectedId();
+        if (sel > 0 && juce::String (factoryPresets()[(size_t) sel - 1].name) != proc.currentPresetName) proc.loadFactoryPreset (sel - 1);
+    };
+    syncStyleBox();
     presetBox.onChange = [this] {
         const int sel = presetBox.getSelectedId();
         if (sel <= 0) return;
@@ -407,7 +422,8 @@ PolooyxEditor::PolooyxEditor (PolooyxProcessor& p)
     mixKnob  = std::make_unique<Knob> (proc.apvts, id::mix, "MIX");
     outKnob  = std::make_unique<Knob> (proc.apvts, id::outGain, "OUTPUT", false, juce::String(), true);
     ceilKnob = std::make_unique<Knob> (proc.apvts, id::ceiling, "CEILING");
-    for (auto* c : std::initializer_list<juce::Component*> { inKnob.get(), mixKnob.get(), outKnob.get(), ceilKnob.get(), &inMeter, &outMeter })
+    punchKnob = std::make_unique<Knob> (proc.apvts, id::punch, "PUNCH");
+    for (auto* c : std::initializer_list<juce::Component*> { inKnob.get(), mixKnob.get(), outKnob.get(), punchKnob.get(), ceilKnob.get(), &inMeter, &outMeter })
         content.addAndMakeVisible (c);
 
     content.painter = [this] (juce::Graphics& g) {
@@ -418,18 +434,18 @@ PolooyxEditor::PolooyxEditor (PolooyxProcessor& p)
         g.setColour (col::text); g.setFont (font (24.0f, true));
         g.drawText ("P O L O O Y X", 22, 10, 260, 26, juce::Justification::left);
         g.setColour (col::dim); g.setFont (font (10.0f, true));
-        g.drawText ("VOCAL ENGINE   v1.0", 24, 36, 260, 14, juce::Justification::left);
+        g.drawText ("VOCAL ENGINE   v1.1", 24, 36, 260, 14, juce::Justification::left);
 
         // bottom bar
         g.setColour (col::bg2); g.fillRect (0, 620, kW, 100);
         g.setColour (col::line); g.drawHorizontalLine (620, 0, (float) kW);
         g.setColour (col::dim); g.setFont (font (10.0f, true));
-        g.drawText ("PITCH", 470, 636, 200, 14, juce::Justification::left);
-        g.drawText ("GAIN REDUCTION", 470, 676, 200, 14, juce::Justification::left);
+        g.drawText ("PITCH", 562, 636, 200, 14, juce::Justification::left);
+        g.drawText ("GAIN REDUCTION", 562, 676, 200, 14, juce::Justification::left);
         g.setColour (col::text); g.setFont (font (13.0f, true));
-        g.drawText (tunerText, 470, 651, 330, 18, juce::Justification::left);
+        g.drawText (tunerText, 562, 651, 300, 18, juce::Justification::left);
         g.setColour (col::mid); g.setFont (font (11.5f, true));
-        g.drawText (grText, 470, 691, 330, 16, juce::Justification::left);
+        g.drawText (grText, 562, 691, 300, 16, juce::Justification::left);
 
         if (advanced)
         {
@@ -449,7 +465,8 @@ PolooyxEditor::PolooyxEditor (PolooyxProcessor& p)
         else
         {
             g.setColour (col::dim); g.setFont (font (10.0f, true));
-            g.drawText ("SIX MACROS  =  THE WHOLE POLOOYX SOUND.   OPEN ADVANCED TO FINE-TUNE EVERY MODULE.", 0, 318, kW, 14, juce::Justification::centred);
+            g.drawText ("STYLE", 22, 318, 50, 14, juce::Justification::left);
+            g.drawText ("PICK A STYLE, THEN SHAPE IT WITH THE SIX MACROS.   OPEN ADVANCED TO FINE-TUNE EVERY MODULE.", 330, 318, kW - 352, 14, juce::Justification::right);
         }
     };
 
@@ -574,6 +591,15 @@ void PolooyxEditor::mouseDown (const juce::MouseEvent&)
     proc.undo.beginNewTransaction();   // every click/drag becomes its own undo step
 }
 
+void PolooyxEditor::syncStyleBox()
+{
+    if (styleBox.isPopupActive()) return;
+    int id = 0;
+    for (int i = 0; i < styleBox.getNumItems(); ++i)
+        if (styleBox.getItemText (i) == proc.currentPresetName) id = styleBox.getItemId (i);
+    if (styleBox.getSelectedId() != id) styleBox.setSelectedId (id, juce::dontSendNotification);
+}
+
 void PolooyxEditor::rebuildPresetMenu()
 {
     presetBox.clear (juce::dontSendNotification);
@@ -599,6 +625,7 @@ void PolooyxEditor::setAdvanced (bool adv)
     advBtn.setToggleState (adv, juce::dontSendNotification);
     vis.setVisible (! adv);
     for (auto& m : macros) m->setVisible (! adv);
+    styleBox.setVisible (! adv);
     for (auto& c : chain) c->btn.setVisible (adv);
     for (size_t i = 0; i < tabs.size(); ++i)
     {
@@ -634,6 +661,7 @@ void PolooyxEditor::resized()
     const int mw = (kW - 44) / 6;
     for (size_t i = 0; i < macros.size(); ++i)
         macros[i]->setBounds (22 + (int) i * mw, 344, mw, 262);
+    styleBox.setBounds (74, 312, 230, 26);
 
     // advanced
     int x = 72;
@@ -648,7 +676,8 @@ void PolooyxEditor::resized()
     inKnob->setBounds (86, 628, 86, 86);
     mixKnob->setBounds (178, 628, 86, 86);
     outKnob->setBounds (270, 628, 86, 86);
-    ceilKnob->setBounds (362, 628, 86, 86);
+    punchKnob->setBounds (362, 628, 86, 86);
+    ceilKnob->setBounds (454, 628, 86, 86);
 }
 
 void PolooyxEditor::timerCallback()
@@ -662,6 +691,7 @@ void PolooyxEditor::timerCallback()
     redoBtn.setEnabled (proc.undo.canRedo());
     if (presetBox.getText() != proc.currentPresetName && ! presetBox.isPopupActive())
         presetBox.setText (proc.currentPresetName, juce::dontSendNotification);
+    syncStyleBox();
 
     auto& pe = proc.getPitchEngine();
     const float midi = pe.detectedMidi.load();

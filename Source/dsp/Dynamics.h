@@ -182,6 +182,81 @@ private:
     double boxSum = 64;
 };
 
+// ============================================================ PUNCH: 3-band up/down compressor ("loud & dense")
+// Splits into low / mid / high (bands sum back to the input exactly), then per band:
+// downward compression above a threshold + upward compression of quiet detail (gated so noise
+// isn't pulled up) + makeup. The processor then drives the result into the limiter.
+// At amount 0 the output is the exact input.
+class Punch
+{
+public:
+    void prepare (double sampleRate)
+    {
+        sr = (float) sampleRate;
+        for (auto& f : lo) f.lowpass (220.0f, 0.707f, sr);
+        for (auto& f : hi) f.highpass (3200.0f, 0.707f, sr);
+        aC = std::exp (-1.0f / (0.004f * sr));
+        rC = std::exp (-1.0f / (0.080f * sr));
+        reset();
+    }
+    void reset()
+    {
+        for (auto& f : lo) f.reset();
+        for (auto& f : hi) f.reset();
+        env.fill (-120.0f);
+        amtPrev = 0.0f;
+    }
+
+    void process (float* const* ch, int numCh, int n, float amount) noexcept
+    {
+        static constexpr float downThr[3] = { -24.0f, -26.0f, -30.0f };
+        static constexpr float makeup[3]  = {   3.5f,   4.5f,   5.0f };
+        const bool active = amount > 0.0f || amtPrev > 0.0f;
+        float maxGr = 0.0f;
+        for (int i = 0; i < n; ++i)
+        {
+            float band[3][2] = {};
+            float x[2];
+            for (int c = 0; c < 2; ++c)
+            {
+                x[c] = ch[std::min (c, numCh - 1)][i];
+                band[0][c] = lo[(size_t) c].process (x[c]);
+                band[2][c] = hi[(size_t) c].process (x[c]);
+                band[1][c] = x[c] - band[0][c] - band[2][c];
+            }
+            if (! active) continue;   // filters/envelopes stay current; output untouched
+
+            const float amt = amtPrev + (amount - amtPrev) * ((float) (i + 1) / (float) n);
+            const float slope = 1.0f - 1.0f / (1.0f + 5.0f * amt);
+            float g[3];
+            for (int b = 0; b < 3; ++b)
+            {
+                const float pk = std::max (std::abs (band[b][0]), std::abs (band[b][1]));
+                const float inDb = gainToDb (pk + 1.0e-7f);
+                env[(size_t) b] = inDb > env[(size_t) b] ? inDb + aC * (env[(size_t) b] - inDb) : inDb + rC * (env[(size_t) b] - inDb);
+                const float e = env[(size_t) b];
+                const float down = e > downThr[b] ? (e - downThr[b]) * slope : 0.0f;
+                float up = 0.0f;
+                if (e < -40.0f && e > -66.0f)
+                    up = std::min (10.0f, (-40.0f - e) * 0.6f) * std::min (1.0f, (e + 66.0f) / 10.0f) * amt;
+                maxGr = std::max (maxGr, down);
+                g[b] = dbToGain (makeup[b] * amt + up - down);
+            }
+            for (int c = 0; c < numCh; ++c)
+                ch[c][i] = g[0] * band[0][c] + g[1] * band[1][c] + g[2] * band[2][c];
+        }
+        amtPrev = amount;
+        grDb = maxGr;
+    }
+
+    float grDb = 0.0f;
+
+private:
+    float sr = 44100, aC = 0, rC = 0, amtPrev = 0;
+    std::array<Biquad, 2> lo, hi;
+    std::array<float, 3> env {};
+};
+
 // ============================================================ safety soft clip
 inline float softClip (float x) noexcept
 {

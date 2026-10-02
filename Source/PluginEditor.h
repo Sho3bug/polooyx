@@ -112,6 +112,7 @@ public:
 private:
     void timerCallback() override;
     void rebuildPresetMenu();
+    void syncStyleBox();
     void setAdvanced (bool);
     void buildPages();
     void mouseDown (const juce::MouseEvent&) override;
@@ -126,7 +127,7 @@ private:
     } content;
 
     // top bar
-    juce::ComboBox presetBox;
+    juce::ComboBox presetBox, styleBox;
     juce::TextButton prevBtn { "<" }, nextBtn { ">" }, saveBtn { "SAVE" }, aBtn { "A" }, bBtn { "B" },
                      undoBtn { "UNDO" }, redoBtn { "REDO" }, advBtn { "ADVANCED" };
     juce::TextButton modeBtn { "POLOOYX MODE" };
@@ -146,7 +147,7 @@ private:
 
     // bottom
     Meter inMeter, outMeter;
-    std::unique_ptr<Knob> inKnob, mixKnob, outKnob, ceilKnob;
+    std::unique_ptr<Knob> inKnob, mixKnob, outKnob, ceilKnob, punchKnob;
     juce::String tunerText, grText;
 
     std::unique_ptr<juce::AlertWindow> saveDialog;

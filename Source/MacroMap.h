@@ -13,7 +13,7 @@ namespace plx
 {
 struct RawParams
 {
-    float inGain, outGain, mix, ceiling;
+    float inGain, outGain, mix, ceiling, punch;               // punch 0..1
     float polooyx;                                             // smoothed 0..1 (click-free switching)
     float aura, glitch, space, dark, chaos, body;              // 0..1
     bool  tuneOn; int key, scale; float tuneAmount, retune, formant;
@@ -51,6 +51,7 @@ struct Targets
     float width, panDepth, panRate, doubler, doublerDepth, doublerRate, shadow, shadowDrive;
     // output
     float inGainDb, outGainDb, mix, ceiling;
+    float punch, punchDriveDb;
 };
 
 inline Targets computeTargets (const RawParams& p) noexcept
@@ -140,6 +141,8 @@ inline Targets computeTargets (const RawParams& p) noexcept
 
     // ------------------------------------------------ output
     t.inGainDb = p.inGain; t.outGainDb = p.outGain; t.mix = p.mix; t.ceiling = p.ceiling;
+    t.punch        = clamp01 (p.punch + sg * 0.3f * b * p.punch);       // BODY (POLOOYX mode) leans harder into PUNCH
+    t.punchDriveDb = 7.0f * t.punch;                                      // drive into the limiter = loudness
     return t;
 }
 } // namespace plx

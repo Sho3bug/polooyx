@@ -51,6 +51,54 @@ inline const std::vector<FactoryPreset>& factoryPresets()
         { "CORRUPTED", "EXTREME", { {"glitch",85}, {"chaos",70}, {"dark",70}, {"satMode",3}, {"satDrive",85}, {"glitchPitch",80} } },
         { "MELTDOWN", "EXTREME", { {"glitch",60}, {"chaos",95}, {"space",70}, {"dark",60}, {"satMode",4}, {"satDrive",80}, {"glitchTape",100} } },
         { "DEAD SIGNAL", "EXTREME", { {"glitch",70}, {"chaos",50}, {"space",85}, {"dark",95}, {"body",80}, {"formant",-4.0f}, {"satMode",3}, {"satDrive",55} } },
+
+        // ---------------------------------------------------------------- STYLES (STYLE menu)
+        // Complete vocal-chain voicings for modern rap / melodic styles. Each one sets tuning, tone,
+        // dynamics, saturation, layers and space together. Key / scale / input + output gain are kept.
+        { "SILK", "STYLES", {   // smooth melodic: glidey hard tune, chorus-wide, polished top, 1/4 echo
+            {"aura",62}, {"glitch",0}, {"space",45}, {"dark",18}, {"chaos",6}, {"body",45}, {"punch",45},
+            {"tuneAmount",100}, {"retune",14}, {"formant",0.3f},
+            {"hpf",110}, {"lmGain",-2.5f}, {"hmGain",2.0f}, {"highGain",2.5f},
+            {"satMode",1}, {"satDrive",18}, {"satMix",45},
+            {"revSize",60}, {"revDecay",2.8f}, {"revMix",14}, {"dlyDiv",7}, {"dlyFeedback",35}, {"dlyMix",18}, {"duck",60},
+            {"width",145}, {"microPitch",48}, {"shadow",15}, {"movement",18} } },
+        { "HIGH VOICE", "STYLES", {   // pitched-up, thin, bright, snappy tune, light digital grit
+            {"aura",35}, {"glitch",12}, {"space",22}, {"dark",4}, {"chaos",10}, {"body",55}, {"punch",70},
+            {"tuneAmount",100}, {"retune",0}, {"formant",3.6f},
+            {"hpf",160}, {"lowGain",-3.0f}, {"lmGain",-3.0f}, {"hmGain",3.0f}, {"highGain",2.0f},
+            {"satMode",2}, {"satDrive",32}, {"satMix",55},
+            {"revSize",35}, {"revDecay",1.2f}, {"revMix",6}, {"dlyDiv",4}, {"dlyFeedback",22}, {"dlyMix",10},
+            {"width",120}, {"microPitch",20}, {"shadow",10} } },
+        { "RAGE", "STYLES", {   // hard robotic tune, loud and in your face, digital drive, stacked and wide
+            {"aura",40}, {"glitch",18}, {"space",24}, {"dark",10}, {"chaos",14}, {"body",78}, {"punch",85},
+            {"tuneAmount",100}, {"retune",0}, {"formant",0.6f},
+            {"hpf",120}, {"lmGain",-2.0f}, {"hmGain",3.5f}, {"highGain",3.0f},
+            {"compThresh",-28}, {"compRatio",6}, {"compAttack",1.5f},
+            {"satMode",2}, {"satDrive",48}, {"satMix",70},
+            {"revSize",40}, {"revDecay",1.6f}, {"revMix",7}, {"dlyDiv",4}, {"dlyFeedback",28}, {"dlyMix",12},
+            {"width",140}, {"microPitch",38}, {"shadow",25} } },
+        { "MOODY", "STYLES", {   // dark, lazy and low: lower formant, warm tube, long dark reverb
+            {"aura",30}, {"glitch",4}, {"space",55}, {"dark",62}, {"chaos",10}, {"body",58}, {"punch",50},
+            {"tuneAmount",100}, {"retune",8}, {"formant",-1.4f},
+            {"hpf",95}, {"lmGain",-1.0f}, {"hmGain",1.5f},
+            {"satMode",0}, {"satDrive",30}, {"satMix",55},
+            {"revSize",65}, {"revDecay",3.6f}, {"revMix",13}, {"revDamp",70}, {"dlyDiv",7}, {"dlyFeedback",38}, {"dlyMix",15}, {"duck",65},
+            {"width",130}, {"microPitch",25}, {"shadow",35} } },
+        { "BLOWN OUT", "STYLES", {   // blown-out, crushed and loud: heavy drive, slammed comp, glitch hits
+            {"aura",20}, {"glitch",32}, {"space",14}, {"dark",28}, {"chaos",25}, {"body",88}, {"punch",95},
+            {"tuneAmount",100}, {"retune",0}, {"formant",0.0f},
+            {"hpf",140}, {"lowGain",-2.0f}, {"hmGain",3.0f},
+            {"compThresh",-32}, {"compRatio",9}, {"compAttack",1.0f}, {"compMakeup",8},
+            {"satMode",3}, {"satDrive",78}, {"satMix",85}, {"satTone",15},
+            {"revSize",30}, {"revDecay",1.0f}, {"revMix",5}, {"dlyDiv",3}, {"dlyFeedback",20}, {"dlyMix",8},
+            {"width",115}, {"microPitch",15}, {"shadow",30} } },
+        { "HAZE", "STYLES", {   // heavy tune drenched in space: big echoes and reverb, psychedelic movement
+            {"aura",58}, {"glitch",10}, {"space",78}, {"dark",42}, {"chaos",22}, {"body",55}, {"punch",55},
+            {"tuneAmount",100}, {"retune",0}, {"formant",-0.4f},
+            {"hpf",110}, {"lmGain",-2.0f}, {"hmGain",2.5f},
+            {"satMode",1}, {"satDrive",32}, {"satMix",55},
+            {"revSize",75}, {"revDecay",4.2f}, {"revMix",16}, {"dlyDiv",8}, {"dlyFeedback",48}, {"dlyMix",22}, {"duck",75},
+            {"width",155}, {"microPitch",42}, {"shadow",25}, {"movement",35} } },
     };
     return p;
 }

@@ -6,7 +6,7 @@
 namespace plx::id
 {
 // global
-inline constexpr auto inGain = "inGain", outGain = "outGain", mix = "mix", ceiling = "ceiling", polooyx = "polooyx";
+inline constexpr auto inGain = "inGain", outGain = "outGain", mix = "mix", ceiling = "ceiling", polooyx = "polooyx", punch = "punch";
 // macros
 inline constexpr auto aura = "aura", glitch = "glitch", space = "space", dark = "dark", chaos = "chaos", body = "body";
 // tune
@@ -66,6 +66,7 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     fl (id::outGain, "Output Gain", lin (-24, 12, 0.1f), 0.0f, db);
     fl (id::mix,     "Mix",         lin (0, 100, 0.1f), 100.0f, pct);
     fl (id::ceiling, "Ceiling",     lin (-12, 0, 0.1f), -0.3f, db);
+    fl (id::punch,   "Punch",       lin (0, 100, 0.1f), 50.0f, pct);
     l.add (std::make_unique<B> (ParameterID { id::polooyx, v }, "POLOOYX Mode", true));
 
     // macros
@@ -80,8 +81,8 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     l.add (std::make_unique<B> (ParameterID { id::tuneOn, v }, "Tune On", true));
     l.add (std::make_unique<C> (ParameterID { id::key, v }, "Key", keyNames(), 0));
     l.add (std::make_unique<C> (ParameterID { id::scale, v }, "Scale", scaleNames(), 0));
-    fl (id::tuneAmount, "Tune Amount", lin (0, 100, 0.1f), 80.0f, pct);
-    fl (id::retune,     "Retune Speed", lin (0, 100, 0.1f), 20.0f, [] (float val, int) { return String (roundToInt (400.0f * (val / 100.0f) * (val / 100.0f))) + " ms"; });
+    fl (id::tuneAmount, "Tune Amount", lin (0, 100, 0.1f), 100.0f, pct);
+    fl (id::retune,     "Retune Speed", lin (0, 100, 0.1f), 0.0f, [] (float val, int) { return String (roundToInt (400.0f * (val / 100.0f) * (val / 100.0f))) + " ms"; });
     fl (id::formant,    "Formant", lin (-12, 12, 0.01f), 0.0f, st);
 
     // eq
@@ -105,12 +106,12 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 
     // compressor
     l.add (std::make_unique<B> (ParameterID { id::compOn, v }, "Comp On", true));
-    fl (id::compThresh,  "Comp Threshold", lin (-48, 0, 0.1f), -20.0f, db);
+    fl (id::compThresh,  "Comp Threshold", lin (-48, 0, 0.1f), -24.0f, db);
     { NormalisableRange<float> r (1, 20, 0.01f); r.setSkewForCentre (4.0f);
-      fl (id::compRatio, "Comp Ratio", r, 3.5f, [] (float val, int) { return String (val, 1) + ":1"; }); }
-    { NormalisableRange<float> r (0.1f, 100, 0.01f); r.setSkewForCentre (8.0f); fl (id::compAttack, "Comp Attack", r, 6.0f, ms); }
-    { NormalisableRange<float> r (10, 1000, 0.1f); r.setSkewForCentre (120.0f); fl (id::compRelease, "Comp Release", r, 120.0f, ms); }
-    fl (id::compMakeup,  "Comp Makeup", lin (0, 24, 0.1f), 4.0f, db);
+      fl (id::compRatio, "Comp Ratio", r, 4.0f, [] (float val, int) { return String (val, 1) + ":1"; }); }
+    { NormalisableRange<float> r (0.1f, 100, 0.01f); r.setSkewForCentre (8.0f); fl (id::compAttack, "Comp Attack", r, 3.0f, ms); }
+    { NormalisableRange<float> r (10, 1000, 0.1f); r.setSkewForCentre (120.0f); fl (id::compRelease, "Comp Release", r, 90.0f, ms); }
+    fl (id::compMakeup,  "Comp Makeup", lin (0, 24, 0.1f), 5.0f, db);
 
     // saturation
     l.add (std::make_unique<B> (ParameterID { id::satOn, v }, "Saturation On", true));
@@ -141,8 +142,8 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     fl (id::revDamp,     "Reverb Damping",  lin (0, 100, 0.1f), 55.0f, pct);
     fl (id::revMix,      "Reverb Level",    lin (0, 100, 0.1f), 10.0f, pct);
     l.add (std::make_unique<C> (ParameterID { id::dlyDiv, v }, "Delay Time", delayDivNames(), 5));
-    fl (id::dlyFeedback, "Delay Feedback",  lin (0, 90, 0.1f), 28.0f, pct);
-    fl (id::dlyMix,      "Delay Level",     lin (0, 100, 0.1f), 6.0f, pct);
+    fl (id::dlyFeedback, "Delay Feedback",  lin (0, 90, 0.1f), 30.0f, pct);
+    fl (id::dlyMix,      "Delay Level",     lin (0, 100, 0.1f), 14.0f, pct);
     l.add (std::make_unique<B> (ParameterID { id::dlyPingPong, v }, "Ping Pong", true));
     fl (id::dlyHp,       "Delay HP",        freq (20, 2000), 320.0f, hz);
     fl (id::dlyLp,       "Delay LP",        freq (1000, 16000), 6000.0f, hz);

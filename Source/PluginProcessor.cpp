@@ -9,7 +9,7 @@ namespace
 constexpr int kChunk = 32;
 
 const char* const kFloatIds[] = {
-    id::inGain, id::outGain, id::mix, id::ceiling,
+    id::inGain, id::outGain, id::mix, id::ceiling, id::punch,
     id::aura, id::glitch, id::space, id::dark, id::chaos, id::body,
     id::tuneAmount, id::retune, id::formant,
     id::hpf, id::lpf, id::lowFreq, id::lowGain, id::lmFreq, id::lmGain, id::hmFreq, id::hmGain, id::highFreq, id::highGain,
@@ -80,6 +80,7 @@ void PolooyxProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     delay.prepare (sr);
     doubler.prepare (sr);
     limiter.prepare (sr, kChunk);
+    punchProc.prepare (sr);
     duckEnv.set (5.0f, 220.0f, (float) sr);
 
     const int dryLat = pitch.getLatency() + osLatency;
@@ -97,7 +98,7 @@ void PolooyxProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     eqPrev = fp (id::eqOn);
     shadowPrev = dlyPrev = revPrev = dblPrev = 0.0f;
     inGainRamp.reset (dbToGain (fp (id::inGain)));
-    outGainRamp.reset (dbToGain (fp (id::outGain)));
+    { const auto t0 = computeTargets (readParams (false, 0)); outGainRamp.reset (dbToGain (t0.outGainDb + t0.punchDriveDb)); }
     mixRamp.reset (fp (id::mix) * 0.01f);
     reset();
 }
@@ -106,7 +107,7 @@ void PolooyxProcessor::reset()
 {
     pitch.reset(); deess.reset(); comp.reset(); sat.reset();
     if (os) os->reset();
-    shadowL.reset(); glitchEng.reset(); reverb.reset(); delay.reset(); doubler.reset(); limiter.reset();
+    shadowL.reset(); glitchEng.reset(); reverb.reset(); delay.reset(); doubler.reset(); limiter.reset(); punchProc.reset();
     for (auto& d : dryDelay) d.clear();
     for (auto& d : satBypass) d.clear();
     for (auto& ch : eq) for (auto& b : ch) b.reset();
@@ -125,6 +126,7 @@ RawParams PolooyxProcessor::readParams (bool smooth, int samples)
 
     RawParams p {};
     p.inGain = fp (id::inGain); p.outGain = fp (id::outGain); p.mix = fp (id::mix) * 0.01f; p.ceiling = fp (id::ceiling);
+    p.punch = fp (id::punch) * 0.01f;
     p.polooyx = fp (id::polooyx);
     p.aura = fp (id::aura) * 0.01f; p.glitch = fp (id::glitch) * 0.01f; p.space = fp (id::space) * 0.01f;
     p.dark = fp (id::dark) * 0.01f; p.chaos = fp (id::chaos) * 0.01f; p.body = fp (id::body) * 0.01f;
@@ -368,8 +370,11 @@ void PolooyxProcessor::processChunk (float* const* io, int numCh, int n, const T
         }
     }
 
-    // ---------------- 9. output gain, dry/wet, safety
-    outGainRamp.set (dbToGain (t.outGainDb), n);
+    // ---------------- 8b. PUNCH: multiband up/down compression (density), then drive into the limiter (loudness)
+    punchProc.process (io, numCh, n, t.punch);
+
+    // ---------------- 9. output gain (+ punch drive), dry/wet, safety
+    outGainRamp.set (dbToGain (t.outGainDb + t.punchDriveDb), n);
     mixRamp.set (t.mix, n);
     for (int i = 0; i < n; ++i)
     {
@@ -431,7 +436,12 @@ void PolooyxProcessor::loadFactoryPreset (int index)
     const auto& all = factoryPresets();
     if (! juce::isPositiveAndBelow (index, (int) all.size())) return;
     undo.beginNewTransaction ("Preset");
+    // session settings survive a preset / style change: the song's key and scale, and the gain staging
+    static const char* keep[] = { id::key, id::scale, id::inGain, id::outGain, id::ceiling, id::mix };
+    float kept[6];
+    for (int i = 0; i < 6; ++i) kept[i] = apvts.getParameter (keep[i])->getValue();
     resetToDefaults();
+    for (int i = 0; i < 6; ++i) apvts.getParameter (keep[i])->setValueNotifyingHost (kept[i]);
     for (auto& [pid, val] : all[(size_t) index].values)
         if (auto* rp = apvts.getParameter (pid))
             rp->setValueNotifyingHost (rp->convertTo0to1 (val));
