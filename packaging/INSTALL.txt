@@ -1,4 +1,4 @@
-POLOOYX — VOCAL ENGINE v1.1  (Windows x64, VST3)
+POLOOYX — VOCAL ENGINE v1.2  (Windows x64, VST3)
 =================================================
 
 INSTALL
@@ -12,7 +12,9 @@ INSTALL
 4. On a mixer track with your vocal: click an empty FX slot -> POLOOYX.
 
 FIRST USE
-- Load a vocal, pick a preset from the top bar, then move the six macros.
+- Load a vocal. Pick your mic in the MIC box (AT2020 if that's yours) and
+  leave CLEAN on: it fixes rumble, hiss, room echo and harshness first.
+- Pick a STYLE or a preset from the top bar, then move the six macros.
 - POLOOYX MODE (top right) switches on the signature voicing network.
 - ADVANCED (bottom right) opens every module.
 - Pitch correction: ADVANCED -> TUNE -> set KEY and SCALE to your beat.

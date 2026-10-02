@@ -127,7 +127,10 @@ private:
     } content;
 
     // top bar
-    juce::ComboBox presetBox, styleBox;
+    juce::ComboBox presetBox, styleBox, micBox;
+    juce::TextButton cleanBtn { "CLEAN" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> micAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> cleanAtt;
     juce::TextButton prevBtn { "<" }, nextBtn { ">" }, saveBtn { "SAVE" }, aBtn { "A" }, bBtn { "B" },
                      undoBtn { "UNDO" }, redoBtn { "REDO" }, advBtn { "ADVANCED" };
     juce::TextButton modeBtn { "POLOOYX MODE" };

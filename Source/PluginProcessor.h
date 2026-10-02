@@ -13,6 +13,7 @@
 #include "dsp/Saturator.h"
 #include "dsp/GlitchEngine.h"
 #include "dsp/SpaceStereo.h"
+#include "dsp/Clean.h"
 
 class PolooyxProcessor : public juce::AudioProcessor
 {
@@ -67,7 +68,7 @@ public:
     void resetToDefaults();
 
     // telemetry (audio → UI, lock-free)
-    std::atomic<float> inPeak { 0 }, outPeak { 0 }, compGr { 0 }, deessGr { 0 }, limGr { 0 };
+    std::atomic<float> inPeak { 0 }, outPeak { 0 }, compGr { 0 }, deessGr { 0 }, limGr { 0 }, cleanGr { 0 };
     static constexpr int kScopeSize = 1024;
     std::array<std::atomic<float>, kScopeSize> scopeIn {}, scopeOut {};
     std::atomic<int> scopeWrite { 0 };
@@ -98,6 +99,7 @@ private:
     int   cp (const char* id) { return (int) raw (id)->load(); }
 
     // DSP
+    plx::Clean clean;
     plx::PitchEngine pitch;
     std::array<std::array<plx::Biquad, 7>, 2> eq;
     plx::DeEsser deess;

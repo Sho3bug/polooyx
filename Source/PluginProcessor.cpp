@@ -19,6 +19,7 @@ const char* const kFloatIds[] = {
     id::glitchAmount, id::glitchStutter, id::glitchReverse, id::glitchGate, id::glitchTape, id::glitchPitch, id::glitchMix,
     id::revSize, id::revDecay, id::revPredelay, id::revDamp, id::revMix, id::dlyFeedback, id::dlyMix, id::dlyHp, id::dlyLp, id::duck,
     id::width, id::movement, id::microPitch, id::shadow,
+    id::cleanRoom, id::cleanClarity, id::cleanSmooth, id::cleanNoise, id::cleanOn,
     // switches are smoothed too, so turning a module (or POLOOYX mode) on/off is click-free
     id::polooyx, id::eqOn, id::deessOn, id::compOn, id::satOn, id::glitchOn, id::spaceOn
 };
@@ -38,7 +39,7 @@ PolooyxProcessor::PolooyxProcessor()
         fparams.push_back ({ src, src->load() });
     }
     abSlots[0] = apvts.copyState();
-    for (auto* pid : { id::tuneOn, id::key, id::scale, id::satMode, id::glitchRate, id::glitchSmart, id::dlyDiv, id::dlyPingPong })
+    for (auto* pid : { id::tuneOn, id::key, id::scale, id::satMode, id::glitchRate, id::glitchSmart, id::dlyDiv, id::dlyPingPong, id::cleanMic })
         raw (pid);   // warm the cache so the audio thread never inserts
 }
 
@@ -65,6 +66,7 @@ void PolooyxProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     sr = sampleRate;
     maxBlock = std::max (samplesPerBlock, kChunk);
 
+    clean.prepare (sr);
     pitch.prepare (sr, kChunk);
     deess.prepare (sr);
     comp.prepare (sr);
@@ -105,7 +107,7 @@ void PolooyxProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
 void PolooyxProcessor::reset()
 {
-    pitch.reset(); deess.reset(); comp.reset(); sat.reset();
+    clean.reset(); pitch.reset(); deess.reset(); comp.reset(); sat.reset();
     if (os) os->reset();
     shadowL.reset(); glitchEng.reset(); reverb.reset(); delay.reset(); doubler.reset(); limiter.reset(); punchProc.reset();
     for (auto& d : dryDelay) d.clear();
@@ -225,6 +227,16 @@ void PolooyxProcessor::processChunk (float* const* io, int numCh, int n, const T
         dry[1][i] = dryDelay[1].readInt (dryLat);
     }
     inPeak.store (std::max (pkIn, inPeak.load (std::memory_order_relaxed) * 0.97f), std::memory_order_relaxed);
+
+    // ---------------- 1b. CLEAN: fix the recording (rumble, hiss, room, boxiness, harshness) before anything else
+    {
+        Clean::Settings cs;
+        cs.amount = fp (id::cleanOn); cs.mic = cp (id::cleanMic);
+        cs.room = fp (id::cleanRoom) * 0.01f; cs.clarity = fp (id::cleanClarity) * 0.01f;
+        cs.smooth = fp (id::cleanSmooth) * 0.01f; cs.noise = fp (id::cleanNoise) * 0.01f;
+        clean.process (io, numCh, n, cs);
+        cleanGr.store (clean.grDb, std::memory_order_relaxed);
+    }
 
     // ---------------- 2. pitch / formant
     {
@@ -437,11 +449,14 @@ void PolooyxProcessor::loadFactoryPreset (int index)
     if (! juce::isPositiveAndBelow (index, (int) all.size())) return;
     undo.beginNewTransaction ("Preset");
     // session settings survive a preset / style change: the song's key and scale, and the gain staging
-    static const char* keep[] = { id::key, id::scale, id::inGain, id::outGain, id::ceiling, id::mix };
-    float kept[6];
-    for (int i = 0; i < 6; ++i) kept[i] = apvts.getParameter (keep[i])->getValue();
+    // and so does CLEAN, which is about the mic and the room, not the style
+    static const char* keep[] = { id::key, id::scale, id::inGain, id::outGain, id::ceiling, id::mix,
+                                  id::cleanOn, id::cleanMic, id::cleanRoom, id::cleanClarity, id::cleanSmooth, id::cleanNoise };
+    constexpr int nKeep = (int) (sizeof (keep) / sizeof (keep[0]));
+    float kept[nKeep];
+    for (int i = 0; i < nKeep; ++i) kept[i] = apvts.getParameter (keep[i])->getValue();
     resetToDefaults();
-    for (int i = 0; i < 6; ++i) apvts.getParameter (keep[i])->setValueNotifyingHost (kept[i]);
+    for (int i = 0; i < nKeep; ++i) apvts.getParameter (keep[i])->setValueNotifyingHost (kept[i]);
     for (auto& [pid, val] : all[(size_t) index].values)
         if (auto* rp = apvts.getParameter (pid))
             rp->setValueNotifyingHost (rp->convertTo0to1 (val));

@@ -230,7 +230,56 @@ static void neutral (PolooyxProcessor& p)
     for (auto* m : { id::aura, id::glitch, id::space, id::dark, id::chaos, id::body }) setParam (p, m, 0);
     for (auto* m : { id::polooyx, id::tuneOn, id::eqOn, id::deessOn, id::compOn, id::satOn, id::glitchOn, id::spaceOn }) setParam (p, m, 0);
     setParam (p, id::microPitch, 0); setParam (p, id::shadow, 0); setParam (p, id::movement, 0); setParam (p, id::formant, 0);
-    setParam (p, id::ceiling, 0); setParam (p, id::punch, 0);
+    setParam (p, id::ceiling, 0); setParam (p, id::punch, 0); setParam (p, id::cleanOn, 0);
+}
+
+// a "bedroom" take: the clean vocal + room echo, boxy low-mids, a bright condenser top, 60 Hz hum and hiss
+static juce::AudioBuffer<float> makeBedroom (const juce::AudioBuffer<float>& dry, double sr)
+{
+    juce::AudioBuffer<float> b (dry);
+    const int N = b.getNumSamples();
+    Biquad box; box.peak (350.0f, 1.0f, 6.0f, (float) sr);
+    Biquad top; top.highShelf (8000.0f, 4.0f, (float) sr);
+    const int combLen[4] = { (int) (0.0297 * sr), (int) (0.0371 * sr), (int) (0.0411 * sr), (int) (0.0437 * sr) };
+    std::vector<std::vector<float>> comb (4);
+    for (int k = 0; k < 4; ++k) comb[(size_t) k].assign ((size_t) combLen[k], 0.0f);
+    int combPos[4] = {};
+    const float fb = 0.80f;   // ~0.6 s small-room tail
+    juce::Random rnd (7);
+    for (int i = 0; i < N; ++i)
+    {
+        const float x = dry.getSample (0, i);
+        float wet = 0.0f;
+        for (int k = 0; k < 4; ++k)
+        {
+            auto& d = comb[(size_t) k];
+            const float y = d[(size_t) combPos[k]];
+            d[(size_t) combPos[k]] = x + fb * y;
+            combPos[k] = (combPos[k] + 1) % combLen[k];
+            wet += y;
+        }
+        float v = x + 0.12f * wet;
+        v = top.process (box.process (v));
+        v += 0.0025f * std::sin (kTwoPi * 60.0f * (float) i / (float) sr) + 0.0012f * (rnd.nextFloat() * 2.0f - 1.0f);
+        b.setSample (0, i, v); b.setSample (1, i, v);
+    }
+    return b;
+}
+
+static double bandDb (const juce::AudioBuffer<float>& b, double sr, double lo, double hi)
+{
+    juce::dsp::FFT fft (12);
+    const int F = 4096;
+    std::vector<float> buf ((size_t) F * 2);
+    double e = 0, tot = 0;
+    for (int off = 0; off + F <= b.getNumSamples(); off += F / 2)
+    {
+        std::fill (buf.begin(), buf.end(), 0.0f);
+        for (int i = 0; i < F; ++i) buf[(size_t) i] = b.getSample (0, off + i) * (0.5f - 0.5f * std::cos (kTwoPi * (float) i / (float) F));
+        fft.performFrequencyOnlyForwardTransform (buf.data());
+        for (int k = 1; k < F / 2; ++k) { const double f = k * sr / F, p = (double) buf[(size_t) k] * buf[(size_t) k]; tot += p; if (f >= lo && f < hi) e += p; }
+    }
+    return 10.0 * std::log10 ((e + 1e-20) / (tot + 1e-20));
 }
 
 int main (int argc, char** argv)
@@ -258,6 +307,29 @@ int main (int argc, char** argv)
         juce::File (argv[2]).replaceWithText (md, false, false, "\n");
         return 0;
     }
+    if (argc > 3 && juce::String (argv[1]) == "--render")
+    {
+        // PolooyxTests --render in.wav out.wav [mic room clarity smooth noise]: CLEAN only, everything else off
+        juce::AudioFormatManager fm; fm.registerBasicFormats();
+        std::unique_ptr<juce::AudioFormatReader> rd (fm.createReaderFor (juce::File (juce::File::getCurrentWorkingDirectory().getChildFile (argv[2]))));
+        if (rd == nullptr) { std::printf ("can't read %s\n", argv[2]); return 2; }
+        juce::AudioBuffer<float> in ((int) std::max (2u, rd->numChannels), (int) rd->lengthInSamples);
+        rd->read (&in, 0, (int) rd->lengthInSamples, 0, true, true);
+        if (rd->numChannels == 1) in.copyFrom (1, 0, in, 0, 0, in.getNumSamples());
+        const float mic = argc > 4 ? (float) std::atof (argv[4]) : 1.0f;
+        float k[4] = { 35, 35, 35, 35 };
+        for (int i = 0; i < 4; ++i) if (argc > 5 + i) k[i] = (float) std::atof (argv[5 + i]);
+        auto out = render (in, rd->sampleRate, 512, [&] (PolooyxProcessor& p) {
+            neutral (p); setParam (p, id::cleanOn, 1); setParam (p, id::cleanMic, mic);
+            setParam (p, id::cleanRoom, k[0]); setParam (p, id::cleanClarity, k[1]); setParam (p, id::cleanSmooth, k[2]); setParam (p, id::cleanNoise, k[3]);
+        });
+        juce::File of = juce::File::getCurrentWorkingDirectory().getChildFile (argv[3]);
+        of.deleteFile();
+        juce::WavAudioFormat wav;
+        std::unique_ptr<juce::AudioFormatWriter> w (wav.createWriterFor (new juce::FileOutputStream (of), rd->sampleRate, 2, 24, {}, 0));
+        w->writeFromAudioSampleBuffer (out, 0, out.getNumSamples());
+        return 0;
+    }
     const bool withUi = argc > 1 && juce::String (argv[1]) == "--ui";
     const juce::File outDir = juce::File::getCurrentWorkingDirectory().getChildFile ("test-output");
     outDir.createDirectory();
@@ -265,7 +337,7 @@ int main (int argc, char** argv)
     const double SR = 48000.0;
     const int BLOCK = 256;
 
-    line ("# POLOOYX v1.1 - DSP Test Report");
+    line ("# POLOOYX v1.2 - DSP Test Report");
     line ("");
     line ("Generated by `tests/TestMain.cpp`, which runs the exact processor code that ships in the VST3.");
     line ("Test material: a synthetic sung/rapped vocal (glottal source + 3 formants, vowels ah/ee/oo, vibrato, sibilant 's' bursts,");
@@ -451,6 +523,45 @@ int main (int argc, char** argv)
     }
     line ("");
 
+    // ---------------------------------------------------------------- 4b. CLEAN
+    line ("## 4b. CLEAN (recording cleanup)");
+    {
+        // simulated bedroom take: room echo, boxy low-mids, bright condenser top, 60 Hz hum, hiss
+        const auto bed = makeBedroom (vocal, SR);
+        auto off = render (bed, SR, BLOCK, [] (PolooyxProcessor& p) { neutral (p); });
+        auto on  = render (bed, SR, BLOCK, [] (PolooyxProcessor& p) {
+            neutral (p); setParam (p, id::cleanOn, 1); setParam (p, id::cleanMic, 1);
+            for (auto* k : { id::cleanRoom, id::cleanClarity, id::cleanSmooth, id::cleanNoise }) setParam (p, k, 60);
+        });
+        // level in the pauses between phrases (where only echo, hum and hiss live)
+        const int w = (int) (0.05 * SR);
+        double gOff = 0, gOn = 0, vOff = 0, vOn = 0; int ng = 0, nv = 0;
+        int silentFor = 0;
+        for (int f = 0; f + w <= vocal.getNumSamples(); f += w)
+        {
+            const double d = rms (vocal, f, w);
+            silentFor = d < 1e-5 ? silentFor + 1 : 0;
+            // pauses between lines count from 150 ms after the voice stops
+            if (silentFor >= 3) { gOff += std::pow (rms (off, f, w), 2); gOn += std::pow (rms (on, f, w), 2); ++ng; }
+            else if (d > 0.05) { vOff += std::pow (rms (off, f, w), 2); vOn += std::pow (rms (on, f, w), 2); ++nv; }
+        }
+        const double gapOff = 10 * std::log10 (gOff / std::max (1, ng) + 1e-20), gapOn = 10 * std::log10 (gOn / std::max (1, ng) + 1e-20);
+        const double voxOff = 10 * std::log10 (vOff / std::max (1, nv) + 1e-20), voxOn = 10 * std::log10 (vOn / std::max (1, nv) + 1e-20);
+        const double sepOff = voxOff - gapOff, sepOn = voxOn - gapOn;
+        check (sepOn > sepOff + 6.0, "Echo + hum + hiss in the pauses between lines vs. the voice: " + f1 (sepOff) + " dB apart without CLEAN, " + f1 (sepOn) + " dB with CLEAN (AT2020, 60%)");
+        const double presOff = bandDb (off, SR, 2000, 4000) - bandDb (off, SR, 200, 600), presOn = bandDb (on, SR, 2000, 4000) - bandDb (on, SR, 200, 600);
+        check (presOn > presOff + 3.0, "Clarity vs. boxiness (2-4 kHz minus 200-600 Hz): " + f1 (presOff) + " -> " + f1 (presOn) + " dB");
+        const double hiOff = bandDb (off, SR, 7000, 16000), hiOn = bandDb (on, SR, 7000, 16000);
+        check (hiOn < hiOff - 2.0, "Harsh/hissy top (7-16 kHz share): " + f1 (hiOff) + " -> " + f1 (hiOn) + " dB");
+        const double humOff = bandDb (off, SR, 40, 80), humOn = bandDb (on, SR, 40, 80);
+        check (humOn < humOff - 10.0, "60 Hz hum/rumble share: " + f1 (humOff) + " -> " + f1 (humOn) + " dB");
+        // a clean studio take shouldn't be wrecked: default CLEAN on the dry synthetic vocal keeps level and stays close
+        auto dflt = render (vocal, SR, BLOCK, [] (PolooyxProcessor& p) { neutral (p); setParam (p, id::cleanOn, 1); });
+        const double lvl = levelDb (dflt) - levelDb (vocal);
+        check (std::abs (lvl) < 3.0, "Default CLEAN on an already-clean vocal is gentle: level change " + f1 (lvl) + " dB");
+    }
+    line ("");
+
     // ---------------------------------------------------------------- 5. glitch
     line ("## 5. Glitch engine");
     {
@@ -595,7 +706,7 @@ int main (int argc, char** argv)
                 for (int i = (int) (0.3 * 48000); i < b.getNumSamples(); ++i) { const double v = std::abs (b.getSample (0, i) - 2 * b.getSample (0, i - 1) + b.getSample (0, i - 2)); if (v > m) { m = v; at = i; } }
                 return at;
             };
-            for (auto* mod : { id::tuneOn, id::eqOn, id::deessOn, id::compOn, id::satOn, id::spaceOn, id::polooyx })
+            for (auto* mod : { id::cleanOn, id::tuneOn, id::eqOn, id::deessOn, id::compOn, id::satOn, id::spaceOn, id::polooyx })
             {
                 auto o = render (sine, SR, 256, clickSetup,
                                  [&] (PolooyxProcessor& p, int64_t pos) { if (pos % (int) (0.25 * SR) < 256) setParam (p, mod, (pos / (int) (0.25 * SR)) % 2 ? 1.0f : 0.0f); });
@@ -709,9 +820,10 @@ int main (int argc, char** argv)
             juce::PNGImageFormat().writeImageToStream (img, fos);
         };
         snap ("ui-main.png");
-        e->showView (true, 0); snap ("ui-advanced-tune.png");
-        e->showView (true, 1); snap ("ui-advanced-eq.png");
-        e->showView (true, 4); snap ("ui-advanced-glitch.png");
+        e->showView (true, 0); snap ("ui-advanced-clean.png");
+        e->showView (true, 1); snap ("ui-advanced-tune.png");
+        e->showView (true, 2); snap ("ui-advanced-eq.png");
+        e->showView (true, 5); snap ("ui-advanced-glitch.png");
         e->showView (false);
         ed->setSize (800, 524); snap ("ui-small.png");
         line ("UI snapshots written to test-output/.");

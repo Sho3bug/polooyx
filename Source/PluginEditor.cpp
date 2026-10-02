@@ -338,6 +338,18 @@ PolooyxEditor::PolooyxEditor (PolooyxProcessor& p)
         if (sel > 0 && juce::String (factoryPresets()[(size_t) sel - 1].name) != proc.currentPresetName) proc.loadFactoryPreset (sel - 1);
     };
     syncStyleBox();
+
+    // ---- CLEAN on the main page: mic profile + on/off (full controls in ADVANCED -> CLEAN)
+    content.addAndMakeVisible (micBox);
+    content.addAndMakeVisible (cleanBtn);
+    if (auto* mp = dynamic_cast<juce::AudioParameterChoice*> (proc.apvts.getParameter (id::cleanMic)))
+        micBox.addItemList (mp->choices, 1);
+    micAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, id::cleanMic, micBox);
+    micBox.setTooltip ("Your microphone. CLEAN uses it to fix that mic's typical problems (AT2020: room pickup, boxiness, bright harsh top).");
+    cleanBtn.setClickingTogglesState (true);
+    cleanBtn.getProperties().set ("pill", true);
+    cleanAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, id::cleanOn, cleanBtn);
+    cleanBtn.setTooltip ("CLEAN fixes the recording first: rumble, hiss, room echo, boxiness and harsh highs. ADVANCED -> CLEAN for the knobs.");
     presetBox.onChange = [this] {
         const int sel = presetBox.getSelectedId();
         if (sel <= 0) return;
@@ -403,7 +415,7 @@ PolooyxEditor::PolooyxEditor (PolooyxProcessor& p)
 
     // ---- advanced
     struct C { const char* id; const char* label; };
-    const C chips[] = { { id::tuneOn, "TUNE" }, { id::eqOn, "EQ" }, { id::deessOn, "DE-ESS" }, { id::compOn, "COMP" },
+    const C chips[] = { { id::cleanOn, "CLEAN" }, { id::tuneOn, "TUNE" }, { id::eqOn, "EQ" }, { id::deessOn, "DE-ESS" }, { id::compOn, "COMP" },
                         { id::satOn, "SATURATE" }, { id::glitchOn, "GLITCH" }, { id::spaceOn, "SPACE" } };
     for (auto& c : chips)
     {
@@ -434,7 +446,7 @@ PolooyxEditor::PolooyxEditor (PolooyxProcessor& p)
         g.setColour (col::text); g.setFont (font (24.0f, true));
         g.drawText ("P O L O O Y X", 22, 10, 260, 26, juce::Justification::left);
         g.setColour (col::dim); g.setFont (font (10.0f, true));
-        g.drawText ("VOCAL ENGINE   v1.1", 24, 36, 260, 14, juce::Justification::left);
+        g.drawText ("VOCAL ENGINE   v1.2", 24, 36, 260, 14, juce::Justification::left);
 
         // bottom bar
         g.setColour (col::bg2); g.fillRect (0, 620, kW, 100);
@@ -445,7 +457,7 @@ PolooyxEditor::PolooyxEditor (PolooyxProcessor& p)
         g.setColour (col::text); g.setFont (font (13.0f, true));
         g.drawText (tunerText, 562, 651, 300, 18, juce::Justification::left);
         g.setColour (col::mid); g.setFont (font (11.5f, true));
-        g.drawText (grText, 562, 691, 300, 16, juce::Justification::left);
+        g.drawText (grText, 562, 691, 400, 16, juce::Justification::left);
 
         if (advanced)
         {
@@ -466,7 +478,8 @@ PolooyxEditor::PolooyxEditor (PolooyxProcessor& p)
         {
             g.setColour (col::dim); g.setFont (font (10.0f, true));
             g.drawText ("STYLE", 22, 318, 50, 14, juce::Justification::left);
-            g.drawText ("PICK A STYLE, THEN SHAPE IT WITH THE SIX MACROS.   OPEN ADVANCED TO FINE-TUNE EVERY MODULE.", 330, 318, kW - 352, 14, juce::Justification::right);
+            g.drawText ("MIC", 326, 318, 40, 14, juce::Justification::left);
+            g.drawText ("PICK YOUR MIC + A STYLE, THEN SHAPE IT WITH THE MACROS.", 664, 318, kW - 686, 14, juce::Justification::right);
         }
     };
 
@@ -508,6 +521,16 @@ void PolooyxEditor::buildPages()
         page = std::make_unique<Page>();
     };
     auto group = [&] (const char* title) -> Page::Group& { page->groups.emplace_back(); page->groups.back().title = title; return page->groups.back(); };
+
+    { auto& g = group ("CLEAN  (runs first: fixes the recording before anything else touches it)");
+      g.note = "Pick your mic, then: ROOM = less echo + boxiness, CLARITY = closer, clearer voice, SMOOTH = less harsh S's and hiss, NOISE = less rumble + noise between lines.";
+      g.controls.push_back (std::make_unique<Toggle> (s, id::cleanOn, "CLEAN ON"));
+      g.controls.push_back (std::make_unique<Choice> (s, id::cleanMic, "MIC"));
+      g.knobs.push_back (knob (id::cleanRoom, "ROOM"));
+      g.knobs.push_back (knob (id::cleanClarity, "CLARITY"));
+      g.knobs.push_back (knob (id::cleanSmooth, "SMOOTH"));
+      g.knobs.push_back (knob (id::cleanNoise, "NOISE"));
+      addPage ("CLEAN"); }
 
     { auto& g = group ("PITCH CORRECTION  /  FORMANT");
       g.note = "Real-time YIN pitch tracking + pitch-synchronous grain shifting. Formant moves independently of pitch. DARK lowers formants on top of this.";
@@ -626,6 +649,8 @@ void PolooyxEditor::setAdvanced (bool adv)
     vis.setVisible (! adv);
     for (auto& m : macros) m->setVisible (! adv);
     styleBox.setVisible (! adv);
+    micBox.setVisible (! adv);
+    cleanBtn.setVisible (! adv);
     for (auto& c : chain) c->btn.setVisible (adv);
     for (size_t i = 0; i < tabs.size(); ++i)
     {
@@ -662,10 +687,12 @@ void PolooyxEditor::resized()
     for (size_t i = 0; i < macros.size(); ++i)
         macros[i]->setBounds (22 + (int) i * mw, 344, mw, 262);
     styleBox.setBounds (74, 312, 230, 26);
+    micBox.setBounds (360, 312, 170, 26);
+    cleanBtn.setBounds (540, 312, 100, 26);
 
     // advanced
     int x = 72;
-    for (auto& c : chain) { c->btn.setBounds (x, 88, 92, 26); x += 92 + 16; }
+    for (auto& c : chain) { c->btn.setBounds (x, 88, 84, 26); x += 84 + 12; }
     x = 22;
     for (auto& t : tabs) { t->setBounds (x, 128, 118, 28); x += 122; }
     for (auto& p : pages) p->setBounds (22, 162, kW - 44, 452);
@@ -706,8 +733,8 @@ void PolooyxEditor::timerCallback()
             t << "   >   " << noteName (pe.targetMidi.load()) << "   (corr " << juce::String ((int) std::lround (pe.correctionCents.load())) << " ct)";
     }
     else t = "--";
-    const auto gr = juce::String ("COMP ") + juce::String (proc.compGr.load(), 1) + "   DE-ESS " + juce::String (proc.deessGr.load(), 1)
+    const auto gr = juce::String ("CLEAN ") + juce::String (proc.cleanGr.load(), 1) + "   COMP " + juce::String (proc.compGr.load(), 1) + "   DE-ESS " + juce::String (proc.deessGr.load(), 1)
                   + "   LIMIT " + juce::String (proc.limGr.load(), 1) + " dB";
-    if (t != tunerText || gr != grText) { tunerText = t; grText = gr; content.repaint (460, 630, 360, 86); }
-    if (advanced && currentTab == 1) pages[1]->repaint();
+    if (t != tunerText || gr != grText) { tunerText = t; grText = gr; content.repaint (460, 630, 520, 86); }
+    if (advanced && currentTab == 2) pages[2]->repaint();   // EQ curve follows the knobs
 }

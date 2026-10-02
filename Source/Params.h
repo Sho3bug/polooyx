@@ -31,6 +31,9 @@ inline constexpr auto spaceOn = "spaceOn", revSize = "revSize", revDecay = "revD
                       dlyHp = "dlyHp", dlyLp = "dlyLp", duck = "duck";
 // stereo / layers
 inline constexpr auto width = "width", movement = "movement", microPitch = "microPitch", shadow = "shadow";
+// clean (recording cleanup, first in the chain)
+inline constexpr auto cleanOn = "cleanOn", cleanMic = "cleanMic", cleanRoom = "cleanRoom", cleanClarity = "cleanClarity",
+                      cleanSmooth = "cleanSmooth", cleanNoise = "cleanNoise";
 } // namespace plx::id
 
 namespace plx
@@ -39,6 +42,7 @@ inline juce::StringArray keyNames()   { return { "C", "C#", "D", "D#", "E", "F",
 inline juce::StringArray scaleNames() { return { "Chromatic", "Major", "Minor", "Harmonic Minor", "Pentatonic" }; }
 inline juce::StringArray satModeNames() { return { "TUBE", "TAPE", "DIGITAL", "CRUSH", "ALIEN" }; }
 inline juce::StringArray glitchRateNames() { return { "1/2", "1/4", "1/8", "1/16", "1/32" }; }
+inline juce::StringArray micNames() { return { "GENERIC MIC", "AT2020" }; }
 inline juce::StringArray delayDivNames() { return { "1/32", "1/16", "1/16D", "1/8T", "1/8", "1/8D", "1/4T", "1/4", "1/4D", "1/2" }; }
 
 inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
@@ -154,6 +158,14 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     fl (id::movement,   "Movement",    lin (0, 100, 0.1f), 10.0f, pct);
     fl (id::microPitch, "Micro Pitch", lin (0, 100, 0.1f), 15.0f, pct);
     fl (id::shadow,     "Shadow",      lin (0, 100, 0.1f), 30.0f, pct);
+
+    // clean (added in v1.2; appended so existing automation keeps its parameter order)
+    l.add (std::make_unique<B> (ParameterID { id::cleanOn, v }, "Clean On", true));
+    l.add (std::make_unique<C> (ParameterID { id::cleanMic, v }, "Clean Mic", micNames(), 0));
+    fl (id::cleanRoom,    "Clean Room",    lin (0, 100, 0.1f), 35.0f, pct);
+    fl (id::cleanClarity, "Clean Clarity", lin (0, 100, 0.1f), 35.0f, pct);
+    fl (id::cleanSmooth,  "Clean Smooth",  lin (0, 100, 0.1f), 35.0f, pct);
+    fl (id::cleanNoise,   "Clean Noise",   lin (0, 100, 0.1f), 35.0f, pct);
     return l;
 }
 } // namespace plx
